@@ -1,3 +1,5 @@
+import Accelerate
+import CJpegli
 import CoreGraphics
 import Foundation
 import ImageIO
@@ -8,6 +10,13 @@ nonisolated enum ImageCompressor {
     static let outputHeight = 1024
     // "Just under 1 MB" in decimal bytes, so it also clears any 1 MiB limit
     static let byteLimit = 1_000_000
+    // Uncropped images shrink only as far as needed to stay at or below this jpegli distance (its quality 97).
+    // That scores about 90 on ssimulacra2 for photos; going tighter costs far more pixels than it gains.
+    static let uncroppedDistanceCeiling: Float = 0.4
+
+    // jpegli distances for quality 100 and quality 0
+    private static let bestDistance: Float = 0.1
+    private static let worstDistance: Float = 25
 
     struct Decoded: @unchecked Sendable {
         let full: CGImage
@@ -17,7 +26,8 @@ nonisolated enum ImageCompressor {
     struct Output: Sendable {
         let url: URL
         let byteCount: Int
-        let quality: Double
+        /// jpegli's equivalent 0–100 quality for the distance that was used.
+        let quality: Int
     }
 
     enum Failure: LocalizedError {
@@ -29,7 +39,7 @@ nonisolated enum ImageCompressor {
             switch self {
             case .unreadable: "That file isn't an image MenuCompress can read."
             case .encodeFailed: "Couldn't encode the JPEG."
-            case .overLimit: "Even at the lowest JPEG quality this is over 1 MB. Try cropping instead."
+            case .overLimit: "Couldn't get this image under 1 MB."
             }
         }
     }
@@ -62,20 +72,19 @@ nonisolated enum ImageCompressor {
         return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 
-    /// Crops (in pixel coordinates, top-left origin) and scales to 2048×1024, or with no crop keeps
-    /// the original resolution, then writes the highest-quality JPEG that still lands under the byte limit.
+    /// Crops (in pixel coordinates, top-left origin) and scales to 2048×1024, or with no crop keeps the
+    /// aspect ratio and shrinks only as needed, then writes the best jpegli JPEG under the byte limit.
     static func compress(_ image: CGImage, crop: CGRect?, baseName: String) throws -> Output {
-        let final: CGImage
+        let colorSpace = outputColorSpace(for: image)
+        let final: Bitmap
         if let crop {
-            guard let cropped = image.cropping(to: pixelRect(for: crop, in: image)),
-                  let scaled = scale(cropped)
-            else { throw Failure.encodeFailed }
-            final = scaled
+            guard let cropped = image.cropping(to: pixelRect(for: crop, in: image)) else { throw Failure.encodeFailed }
+            final = try Bitmap(cropped, colorSpace: colorSpace).resized(width: outputWidth, height: outputHeight)
         } else {
-            final = image
+            final = try shrinkToFit(Bitmap(image, colorSpace: colorSpace))
         }
 
-        let (data, quality) = try bestJPEG(for: final)
+        let (data, distance) = try bestJPEG(for: final)
 
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("MenuCompress", isDirectory: true)
@@ -84,7 +93,7 @@ nonisolated enum ImageCompressor {
         let url = directory.appendingPathComponent("\(baseName)-\(final.width)x\(final.height).jpg")
         try data.write(to: url)
 
-        return Output(url: url, byteCount: data.count, quality: quality)
+        return Output(url: url, byteCount: data.count, quality: equivalentQuality(for: distance))
     }
 
     // Snap to whole pixels while keeping an exact 2:1 ratio so the scale doesn't stretch
@@ -96,61 +105,122 @@ nonisolated enum ImageCompressor {
         return CGRect(x: x, y: y, width: width, height: height)
     }
 
-    private static func scale(_ image: CGImage) -> CGImage? {
-        // Keep the source's RGB profile (e.g. Display P3) when we can draw into it
-        let sourceSpace = image.colorSpace.flatMap { $0.model == .rgb && $0.supportsOutput ? $0 : nil }
-        let spaces = [sourceSpace, CGColorSpace(name: CGColorSpace.sRGB)].compactMap { $0 }
-
-        for space in spaces {
-            guard let context = CGContext(
-                data: nil,
-                width: outputWidth,
-                height: outputHeight,
-                bitsPerComponent: 8,
-                bytesPerRow: 0,
-                space: space,
-                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
-            ) else { continue }
-
-            context.interpolationQuality = .high
-            context.draw(image, in: CGRect(x: 0, y: 0, width: outputWidth, height: outputHeight))
-            return context.makeImage()
+    // Keep the source's RGB profile (e.g. Display P3) when it can be written out, otherwise sRGB
+    private static func outputColorSpace(for image: CGImage) -> CGColorSpace {
+        if let space = image.colorSpace, space.model == .rgb, space.supportsOutput, space.copyICCData() != nil {
+            return space
         }
-        return nil
+        return CGColorSpace(name: CGColorSpace.sRGB)!
     }
 
-    // Binary search on JPEG quality for the largest file that stays under the limit
-    private static func bestJPEG(for image: CGImage) throws -> (Data, Double) {
-        if let data = jpeg(image, quality: 1), data.count < byteLimit {
-            return (data, 1)
+    /// The largest copy of `original` whose JPEG at the distance ceiling fits under the limit.
+    private static func shrinkToFit(_ original: Bitmap) throws -> Bitmap {
+        var candidate = original
+        // File size roughly tracks pixel count, so rescale by the overshoot each pass; usually 1–3 passes
+        for _ in 0..<8 {
+            guard let data = jpeg(candidate, distance: uncroppedDistanceCeiling) else { throw Failure.encodeFailed }
+            if data.count < byteLimit { return candidate }
+
+            let factor = (Double(byteLimit) * 0.97 / Double(data.count)).squareRoot()
+            let width = max(1, Int(Double(candidate.width) * factor))
+            let height = max(1, Int((Double(width) * Double(original.height) / Double(original.width)).rounded()))
+            // Always resample from the original so passes don't stack blur
+            candidate = try original.resized(width: width, height: height)
+        }
+        return candidate
+    }
+
+    // Search jpegli's distance (log scale, it spans 0.1–25) for the best one that fits under the limit
+    private static func bestJPEG(for bitmap: Bitmap) throws -> (Data, Float) {
+        guard let best = jpeg(bitmap, distance: bestDistance) else { throw Failure.encodeFailed }
+        if best.count < byteLimit {
+            return (best, bestDistance)
         }
 
-        var low = 0.0
-        var high = 1.0
-        var best: (Data, Double)?
+        guard let worst = jpeg(bitmap, distance: worstDistance) else { throw Failure.encodeFailed }
+        guard worst.count < byteLimit else { throw Failure.overLimit }
+
+        var tooLarge = bestDistance
+        var fits = (worst, worstDistance)
         for _ in 0..<10 {
-            let quality = (low + high) / 2
-            guard let data = jpeg(image, quality: quality) else { throw Failure.encodeFailed }
+            let distance = (tooLarge * fits.1).squareRoot()
+            guard let data = jpeg(bitmap, distance: distance) else { throw Failure.encodeFailed }
             if data.count < byteLimit {
-                best = (data, quality)
-                low = quality
+                fits = (data, distance)
             } else {
-                high = quality
+                tooLarge = distance
             }
         }
-
-        guard let best else { throw Failure.overLimit }
-        return best
+        return fits
     }
 
-    private static func jpeg(_ image: CGImage, quality: Double) -> Data? {
-        let data = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil)
-        else { return nil }
+    private static func jpeg(_ bitmap: Bitmap, distance: Float) -> Data? {
+        var size = 0
+        let bytes = bitmap.icc.withUnsafeBytes { icc in
+            cjpegli_encode_rgbx(
+                bitmap.buffer.data.assumingMemoryBound(to: UInt8.self),
+                Int32(bitmap.width),
+                Int32(bitmap.height),
+                bitmap.buffer.rowBytes,
+                distance,
+                icc.bindMemory(to: UInt8.self).baseAddress,
+                icc.count,
+                &size
+            )
+        }
+        guard let bytes else { return nil }
+        return Data(bytesNoCopy: bytes, count: size, deallocator: .free)
+    }
 
-        let options = [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary
-        CGImageDestinationAddImage(destination, image, options)
-        guard CGImageDestinationFinalize(destination) else { return nil }
-        return data as Data
+    private static func equivalentQuality(for distance: Float) -> Int {
+        (0...100).min { abs(cjpegli_quality_to_distance(Int32($0)) - distance) < abs(cjpegli_quality_to_distance(Int32($1)) - distance) } ?? 0
+    }
+}
+
+/// 8-bit RGBX pixels in a fixed color space, owned by vImage.
+private nonisolated final class Bitmap {
+    let buffer: vImage_Buffer
+    let colorSpace: CGColorSpace
+    let icc: Data
+
+    var width: Int { Int(buffer.width) }
+    var height: Int { Int(buffer.height) }
+
+    private init(buffer: vImage_Buffer, colorSpace: CGColorSpace) {
+        self.buffer = buffer
+        self.colorSpace = colorSpace
+        self.icc = (colorSpace.copyICCData() as Data?) ?? Data()
+    }
+
+    /// Converts `image` into `colorSpace`, dropping alpha.
+    convenience init(_ image: CGImage, colorSpace: CGColorSpace) throws {
+        guard let format = vImage_CGImageFormat(
+            bitsPerComponent: 8,
+            bitsPerPixel: 32,
+            colorSpace: colorSpace,
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
+        ),
+            let buffer = try? vImage_Buffer(cgImage: image, format: format)
+        else { throw ImageCompressor.Failure.encodeFailed }
+
+        self.init(buffer: buffer, colorSpace: colorSpace)
+    }
+
+    deinit {
+        buffer.free()
+    }
+
+    /// Lanczos resample, which keeps noticeably more fine detail than Core Graphics' high-quality scaling.
+    func resized(width: Int, height: Int) throws -> Bitmap {
+        var source = buffer
+        guard var destination = try? vImage_Buffer(width: width, height: height, bitsPerPixel: 32)
+        else { throw ImageCompressor.Failure.encodeFailed }
+
+        let error = vImageScale_ARGB8888(&source, &destination, nil, vImage_Flags(kvImageHighQualityResampling))
+        guard error == kvImageNoError else {
+            destination.free()
+            throw ImageCompressor.Failure.encodeFailed
+        }
+        return Bitmap(buffer: destination, colorSpace: colorSpace)
     }
 }

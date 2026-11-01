@@ -6,7 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D989A98F864F3B386C60EA06 /* CJpegli in Frameworks */ = {isa = PBXBuildFile; productRef = B10E2367E631A00425EAECD2 /* CJpegli */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
+		2E8A4DA4B71740602AED0A5B /* Jpegli */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Jpegli; path = Packages/Jpegli; sourceTree = SOURCE_ROOT; };
 		FAF9BFA0BAFBA96CB901D770 /* MenuCompress.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MenuCompress.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -22,7 +27,26 @@
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		B769B760947A9E78CD3DDFE0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D989A98F864F3B386C60EA06 /* CJpegli in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
+		55A08AA20290E557C341AFD4 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				2E8A4DA4B71740602AED0A5B /* Jpegli */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
 		E3A45451577B8E14DF758946 /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -35,6 +59,7 @@
 			isa = PBXGroup;
 			children = (
 				4C3165429CDA3E3877760B3D /* MenuCompress */,
+				55A08AA20290E557C341AFD4 /* Packages */,
 				E3A45451577B8E14DF758946 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -48,6 +73,7 @@
 			buildPhases = (
 				DC3CBD08C8783ABD2E282675 /* Sources */,
 				DA39642920B8D9A9FB0DDAC0 /* Resources */,
+				B769B760947A9E78CD3DDFE0 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -58,6 +84,7 @@
 			);
 			name = MenuCompress;
 			packageProductDependencies = (
+				B10E2367E631A00425EAECD2 /* CJpegli */,
 			);
 			productName = MenuCompress;
 			productReference = FAF9BFA0BAFBA96CB901D770 /* MenuCompress.app */;
@@ -87,6 +114,9 @@
 			);
 			mainGroup = F03010EA41B77F44EAB5355C;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				ABA6A2F3BE752FA9D037EB92 /* XCLocalSwiftPackageReference "Packages/Jpegli" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E3A45451577B8E14DF758946 /* Products */;
 			projectDirPath = "";
@@ -313,6 +343,20 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		ABA6A2F3BE752FA9D037EB92 /* XCLocalSwiftPackageReference "Packages/Jpegli" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Jpegli;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B10E2367E631A00425EAECD2 /* CJpegli */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CJpegli;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 5D0073BE93FBACCCB90E8154 /* Project object */;
 }

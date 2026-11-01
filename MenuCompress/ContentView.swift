@@ -110,7 +110,7 @@ struct ContentView: View {
                     .keyboardShortcut(.cancelAction)
                 Spacer()
                 Button("Compress Without Cropping") { session.compress(cropping: false) }
-                    .help("Keep the whole image at \(Int(source.pixelSize.width)) × \(Int(source.pixelSize.height)) and only compress it")
+                    .help("Keep the whole image and its shape, shrinking it only as much as needed to fit under 1 MB")
                     .disabled(session.isCompressing)
                 Button("Compress") { session.compress() }
                     .keyboardShortcut(.defaultAction)
@@ -159,7 +159,7 @@ struct ContentView: View {
                         .font(.headline)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                    Text("\(result.output.byteCount.formatted(.byteCount(style: .file))) · JPEG quality \(Int((result.output.quality * 100).rounded()))%")
+                    Text("\(result.output.byteCount.formatted(.byteCount(style: .file))) · quality \(result.output.quality)")
                         .font(.callout.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }

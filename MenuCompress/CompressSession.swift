@@ -61,7 +61,7 @@ final class CompressSession {
         }
     }
 
-    /// Without cropping, the whole image is kept at its original resolution and only the JPEG quality drops.
+    /// Without cropping, the whole image keeps its aspect ratio and shrinks only as much as it needs to.
     func compress(cropping: Bool = true) {
         guard let source, !isCompressing else { return }
         isCompressing = true
