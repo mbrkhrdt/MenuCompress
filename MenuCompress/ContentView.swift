@@ -150,7 +150,12 @@ struct ContentView: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .frame(maxWidth: .infinity, maxHeight: 360)
-            .onDrag { NSItemProvider(contentsOf: result.output.url) ?? NSItemProvider() }
+            .onDrag {
+                // Without a suggested name, Finder names the dropped file after its type ("JPEG image")
+                let provider = NSItemProvider(contentsOf: result.output.url) ?? NSItemProvider()
+                provider.suggestedName = result.output.url.lastPathComponent
+                return provider
+            }
             .help("Drag to a folder")
 
             HStack(alignment: .firstTextBaseline) {
