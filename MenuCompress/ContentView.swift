@@ -27,7 +27,7 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                 Text("Drop an image on the menu bar icon")
                     .font(.headline)
-                Text("It'll be cropped to 2:1 and saved as a 2048 × 1024 JPEG just under 1 MB.")
+                Text("It'll be cropped to \(session.aspect.label) and saved as a \(outputSizeLabel) JPEG just under 1 MB.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -46,6 +46,13 @@ struct ContentView: View {
             }
 
             HStack {
+                Picker("Crop", selection: $session.aspect) {
+                    ForEach(CropAspect.allCases) { aspect in
+                        Text(aspect.label).tag(aspect)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .fixedSize()
                 Spacer()
                 Button("Quit") { NSApp.terminate(nil) }
                     .buttonStyle(.borderless)
@@ -87,10 +94,10 @@ struct ContentView: View {
                 Text(cropSizeLabel)
                     .font(.callout.monospacedDigit())
                     .foregroundStyle(isUpscaling ? .orange : .secondary)
-                    .help(isUpscaling ? "The crop is smaller than 2048 × 1024, so it'll be upscaled." : "")
+                    .help(isUpscaling ? "The crop is smaller than \(outputSizeLabel), so it'll be upscaled." : "")
             }
 
-            CropEditor(image: source.preview, pixelSize: source.pixelSize, crop: $session.crop)
+            CropEditor(image: source.preview, pixelSize: source.pixelSize, ratio: session.aspect.ratio, crop: $session.crop)
                 .frame(maxWidth: .infinity, maxHeight: 360)
                 .overlay {
                     if session.isCompressing {
@@ -121,12 +128,16 @@ struct ContentView: View {
 
     private var cropSizeLabel: String {
         let width = Int(session.crop.width.rounded())
-        let height = Int((session.crop.width / 2).rounded())
-        return "\(width) × \(height) → 2048 × 1024"
+        let height = Int((session.crop.width / session.aspect.ratio).rounded())
+        return "\(width) × \(height) → \(outputSizeLabel)"
+    }
+
+    private var outputSizeLabel: String {
+        "\(session.aspect.outputWidth) × \(session.aspect.outputHeight)"
     }
 
     private var isUpscaling: Bool {
-        session.crop.width.rounded() < CGFloat(ImageCompressor.outputWidth)
+        session.crop.width.rounded() < CGFloat(session.aspect.outputWidth)
     }
 
     // MARK: - Done

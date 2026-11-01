@@ -6,8 +6,6 @@ import ImageIO
 import UniformTypeIdentifiers
 
 nonisolated enum ImageCompressor {
-    static let outputWidth = 2048
-    static let outputHeight = 1024
     // "Just under 1 MB" in decimal bytes, so it also clears any 1 MiB limit
     static let byteLimit = 1_000_000
     // Uncropped images shrink only as far as needed to stay at or below this jpegli distance (its quality 97).
@@ -72,14 +70,16 @@ nonisolated enum ImageCompressor {
         return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 
-    /// Crops (in pixel coordinates, top-left origin) and scales to 2048×1024, or with no crop keeps the
-    /// aspect ratio and shrinks only as needed, then writes the best jpegli JPEG under the byte limit.
-    static func compress(_ image: CGImage, crop: CGRect?, baseName: String) throws -> Output {
+    /// Crops (in pixel coordinates, top-left origin) and scales to the aspect's output size, or with no crop keeps
+    /// the image's own shape and shrinks only as needed, then writes the best jpegli JPEG under the byte limit.
+    static func compress(_ image: CGImage, crop: CGRect?, aspect: CropAspect, baseName: String) throws -> Output {
         let colorSpace = outputColorSpace(for: image)
         let final: Bitmap
         if let crop {
-            guard let cropped = image.cropping(to: pixelRect(for: crop, in: image)) else { throw Failure.encodeFailed }
-            final = try Bitmap(cropped, colorSpace: colorSpace).resized(width: outputWidth, height: outputHeight)
+            guard let cropped = image.cropping(to: pixelRect(for: crop, aspect: aspect, in: image))
+            else { throw Failure.encodeFailed }
+            final = try Bitmap(cropped, colorSpace: colorSpace)
+                .resized(width: aspect.outputWidth, height: aspect.outputHeight)
         } else {
             final = try shrinkToFit(Bitmap(image, colorSpace: colorSpace))
         }
@@ -96,10 +96,10 @@ nonisolated enum ImageCompressor {
         return Output(url: url, byteCount: data.count, quality: equivalentQuality(for: distance))
     }
 
-    // Snap to whole pixels while keeping an exact 2:1 ratio so the scale doesn't stretch
-    private static func pixelRect(for crop: CGRect, in image: CGImage) -> CGRect {
+    // Snap to whole pixels while keeping the aspect's ratio so the scale doesn't stretch
+    private static func pixelRect(for crop: CGRect, aspect: CropAspect, in image: CGImage) -> CGRect {
         let width = min(crop.width.rounded(), CGFloat(image.width))
-        let height = min((width / 2).rounded(), CGFloat(image.height))
+        let height = min((width / aspect.ratio).rounded(), CGFloat(image.height))
         let x = min(max(crop.minX.rounded(), 0), CGFloat(image.width) - width)
         let y = min(max(crop.minY.rounded(), 0), CGFloat(image.height) - height)
         return CGRect(x: x, y: y, width: width, height: height)

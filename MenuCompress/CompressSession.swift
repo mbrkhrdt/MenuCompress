@@ -29,8 +29,14 @@ final class CompressSession {
     private(set) var isCompressing = false
     private(set) var errorMessage: String?
 
-    /// Pixel coordinates in the source image, top-left origin, always 2:1.
+    /// Pixel coordinates in the source image, top-left origin, always in `aspect`'s ratio.
     var crop: CGRect = .zero
+
+    /// The user's crop shape, remembered across launches. Only changeable before an image is loaded.
+    var aspect = CropAspect(rawValue: UserDefaults.standard.string(forKey: aspectKey) ?? "") ?? .twoToOne {
+        didSet { UserDefaults.standard.set(aspect.rawValue, forKey: Self.aspectKey) }
+    }
+    private static let aspectKey = "cropAspect"
 
     @ObservationIgnored var presentPopover: (() -> Void)?
     @ObservationIgnored private var loadGeneration = 0
@@ -51,7 +57,7 @@ final class CompressSession {
 
                 let source = Source(url: url, image: decoded.full, preview: NSImage(cgImage: decoded.preview, size: .zero))
                 self.source = source
-                crop = Self.defaultCrop(for: source.pixelSize)
+                crop = Self.defaultCrop(for: source.pixelSize, ratio: aspect.ratio)
                 phase = .cropping
             } catch {
                 guard generation == loadGeneration else { return }
@@ -69,12 +75,13 @@ final class CompressSession {
 
         let image = source.image
         let crop = cropping ? crop : nil
+        let aspect = aspect
         let baseName = source.url.deletingPathExtension().lastPathComponent
         Task {
             defer { isCompressing = false }
             do {
                 let output = try await Task.detached {
-                    try ImageCompressor.compress(image, crop: crop, baseName: baseName)
+                    try ImageCompressor.compress(image, crop: crop, aspect: aspect, baseName: baseName)
                 }.value
                 discardResult()
                 result = Result(output: output, preview: NSImage(contentsOf: output.url))
@@ -104,9 +111,9 @@ final class CompressSession {
         result = nil
     }
 
-    static func defaultCrop(for size: CGSize) -> CGRect {
-        let width = min(size.width, size.height * 2)
-        let height = width / 2
+    static func defaultCrop(for size: CGSize, ratio: CGFloat) -> CGRect {
+        let width = min(size.width, size.height * ratio)
+        let height = width / ratio
         return CGRect(x: (size.width - width) / 2, y: (size.height - height) / 2, width: width, height: height)
     }
 }

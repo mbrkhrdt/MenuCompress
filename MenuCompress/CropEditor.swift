@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// Aspect-locked 2:1 crop. Drag inside to move, drag a corner to resize, drag outside to draw a new one.
+/// Aspect-locked crop. Drag inside to move, drag a corner to resize, drag outside to draw a new one.
 struct CropEditor: View {
     let image: NSImage
     let pixelSize: CGSize
+    /// Width over height.
+    let ratio: CGFloat
     @Binding var crop: CGRect
 
     @State private var dragMode: DragMode?
@@ -145,7 +147,7 @@ struct CropEditor: View {
         CGPoint(x: min(max(point.x, 0), pixelSize.width), y: min(max(point.y, 0), pixelSize.height))
     }
 
-    /// The 2:1 rect spanning from `anchor` toward `point`, kept inside the image.
+    /// The `ratio`-shaped rect spanning from `anchor` toward `point`, kept inside the image.
     private func aspectRect(from anchor: CGPoint, to point: CGPoint, minimumWidth: CGFloat) -> CGRect {
         let dx = point.x - anchor.x
         let dy = point.y - anchor.y
@@ -154,10 +156,10 @@ struct CropEditor: View {
 
         let roomX = goesRight ? pixelSize.width - anchor.x : anchor.x
         let roomY = goesDown ? pixelSize.height - anchor.y : anchor.y
-        let maxWidth = min(roomX, roomY * 2)
+        let maxWidth = min(roomX, roomY * ratio)
 
-        let width = min(max(abs(dx), abs(dy) * 2, min(minimumWidth, maxWidth)), maxWidth)
-        let height = width / 2
+        let width = min(max(abs(dx), abs(dy) * ratio, min(minimumWidth, maxWidth)), maxWidth)
+        let height = width / ratio
 
         return CGRect(
             x: goesRight ? anchor.x : anchor.x - width,
