@@ -1,0 +1,182 @@
+import SwiftUI
+import UniformTypeIdentifiers
+
+struct ContentView: View {
+    @Bindable var session: CompressSession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            switch session.phase {
+            case .empty: emptyState
+            case .loading: loading
+            case .cropping: cropping
+            case .done: done
+            }
+        }
+        .padding(16)
+        .frame(width: 520)
+    }
+
+    // MARK: - Empty
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            VStack(spacing: 8) {
+                Image(systemName: "photo.badge.arrow.down")
+                    .font(.system(size: 36, weight: .light))
+                    .foregroundStyle(.secondary)
+                Text("Drop an image on the menu bar icon")
+                    .font(.headline)
+                Text("It'll be cropped to 2:1 and saved as a 2048 × 1024 JPEG just under 1 MB.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Button("Choose Image…", action: chooseImage)
+                    .padding(.top, 4)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 28)
+            .background {
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(.quaternary, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+            }
+
+            if let errorMessage = session.errorMessage {
+                errorLabel(errorMessage)
+            }
+
+            HStack {
+                Spacer()
+                Button("Quit") { NSApp.terminate(nil) }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func chooseImage() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        NSApp.activate()
+        panel.begin { response in
+            if response == .OK, let url = panel.url {
+                session.load(url)
+            }
+        }
+    }
+
+    // MARK: - Loading
+
+    private var loading: some View {
+        ProgressView()
+            .controlSize(.small)
+            .frame(maxWidth: .infinity, minHeight: 160)
+    }
+
+    // MARK: - Cropping
+
+    @ViewBuilder
+    private var cropping: some View {
+        if let source = session.source {
+            HStack(alignment: .firstTextBaseline) {
+                Text(source.url.lastPathComponent)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer()
+                Text(cropSizeLabel)
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(isUpscaling ? .orange : .secondary)
+                    .help(isUpscaling ? "The crop is smaller than 2048 × 1024, so it'll be upscaled." : "")
+            }
+
+            CropEditor(image: source.preview, pixelSize: source.pixelSize, crop: $session.crop)
+                .frame(maxWidth: .infinity, maxHeight: 360)
+                .overlay {
+                    if session.isCompressing {
+                        ProgressView()
+                            .controlSize(.small)
+                            .padding(10)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+
+            if let errorMessage = session.errorMessage {
+                errorLabel(errorMessage)
+            }
+
+            HStack {
+                Button("Cancel", action: session.reset)
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Compress", action: session.compress)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(session.isCompressing)
+            }
+        }
+    }
+
+    private var cropSizeLabel: String {
+        let width = Int(session.crop.width.rounded())
+        let height = Int((session.crop.width / 2).rounded())
+        return "\(width) × \(height) → 2048 × 1024"
+    }
+
+    private var isUpscaling: Bool {
+        session.crop.width.rounded() < CGFloat(ImageCompressor.outputWidth)
+    }
+
+    // MARK: - Done
+
+    @ViewBuilder
+    private var done: some View {
+        if let result = session.result {
+            Group {
+                if let preview = result.preview {
+                    Image(nsImage: preview)
+                        .resizable()
+                        .aspectRatio(2, contentMode: .fit)
+                } else {
+                    Image(systemName: "photo")
+                        .font(.largeTitle)
+                        .frame(maxWidth: .infinity)
+                        .aspectRatio(2, contentMode: .fit)
+                        .background(.quaternary)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .onDrag { NSItemProvider(contentsOf: result.output.url) ?? NSItemProvider() }
+            .help("Drag to a folder")
+
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(result.output.url.lastPathComponent)
+                        .font(.headline)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text("\(result.output.byteCount.formatted(.byteCount(style: .file))) · JPEG quality \(Int((result.output.quality * 100).rounded()))%")
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Label("Drag the image to a folder", systemImage: "hand.draw")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                Button("Adjust Crop", action: session.adjustCrop)
+                Spacer()
+                Button("New Image", action: session.reset)
+            }
+        }
+    }
+
+    // MARK: - Shared
+
+    private func errorLabel(_ message: String) -> some View {
+        Label(message, systemImage: "exclamationmark.triangle.fill")
+            .font(.callout)
+            .foregroundStyle(.red)
+    }
+}
