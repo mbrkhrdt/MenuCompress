@@ -61,13 +61,14 @@ final class CompressSession {
         }
     }
 
-    func compress() {
+    /// Without cropping, the whole image is kept at its original resolution and only the JPEG quality drops.
+    func compress(cropping: Bool = true) {
         guard let source, !isCompressing else { return }
         isCompressing = true
         errorMessage = nil
 
         let image = source.image
-        let crop = crop
+        let crop = cropping ? crop : nil
         let baseName = source.url.deletingPathExtension().lastPathComponent
         Task {
             defer { isCompressing = false }

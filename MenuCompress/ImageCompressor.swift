@@ -29,7 +29,7 @@ nonisolated enum ImageCompressor {
             switch self {
             case .unreadable: "That file isn't an image MenuCompress can read."
             case .encodeFailed: "Couldn't encode the JPEG."
-            case .overLimit: "Couldn't get this image under 1 MB."
+            case .overLimit: "Even at the lowest JPEG quality this is over 1 MB. Try cropping instead."
             }
         }
     }
@@ -62,20 +62,26 @@ nonisolated enum ImageCompressor {
         return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 
-    /// Crops (in pixel coordinates, top-left origin), scales to 2048×1024, and writes the
-    /// highest-quality JPEG that still lands under the byte limit.
-    static func compress(_ image: CGImage, crop: CGRect, baseName: String) throws -> Output {
-        guard let cropped = image.cropping(to: pixelRect(for: crop, in: image)),
-              let scaled = scale(cropped)
-        else { throw Failure.encodeFailed }
+    /// Crops (in pixel coordinates, top-left origin) and scales to 2048×1024, or with no crop keeps
+    /// the original resolution, then writes the highest-quality JPEG that still lands under the byte limit.
+    static func compress(_ image: CGImage, crop: CGRect?, baseName: String) throws -> Output {
+        let final: CGImage
+        if let crop {
+            guard let cropped = image.cropping(to: pixelRect(for: crop, in: image)),
+                  let scaled = scale(cropped)
+            else { throw Failure.encodeFailed }
+            final = scaled
+        } else {
+            final = image
+        }
 
-        let (data, quality) = try bestJPEG(for: scaled)
+        let (data, quality) = try bestJPEG(for: final)
 
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("MenuCompress", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let url = directory.appendingPathComponent("\(baseName)-\(outputWidth)x\(outputHeight).jpg")
+        let url = directory.appendingPathComponent("\(baseName)-\(final.width)x\(final.height).jpg")
         try data.write(to: url)
 
         return Output(url: url, byteCount: data.count, quality: quality)

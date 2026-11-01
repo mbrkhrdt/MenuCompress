@@ -109,7 +109,10 @@ struct ContentView: View {
                 Button("Cancel", action: session.reset)
                     .keyboardShortcut(.cancelAction)
                 Spacer()
-                Button("Compress", action: session.compress)
+                Button("Compress Without Cropping") { session.compress(cropping: false) }
+                    .help("Keep the whole image at \(Int(source.pixelSize.width)) × \(Int(source.pixelSize.height)) and only compress it")
+                    .disabled(session.isCompressing)
+                Button("Compress") { session.compress() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(session.isCompressing)
             }
@@ -133,9 +136,10 @@ struct ContentView: View {
         if let result = session.result {
             Group {
                 if let preview = result.preview {
+                    // Uncropped results keep the source's shape, so use the preview's own ratio
                     Image(nsImage: preview)
                         .resizable()
-                        .aspectRatio(2, contentMode: .fit)
+                        .aspectRatio(contentMode: .fit)
                 } else {
                     Image(systemName: "photo")
                         .font(.largeTitle)
@@ -145,6 +149,7 @@ struct ContentView: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 8))
+            .frame(maxWidth: .infinity, maxHeight: 360)
             .onDrag { NSItemProvider(contentsOf: result.output.url) ?? NSItemProvider() }
             .help("Drag to a folder")
 
