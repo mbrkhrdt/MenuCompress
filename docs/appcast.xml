@@ -5,5 +5,14 @@
         <link>https://mbrkhrdt.github.io/MenuCompress/appcast.xml</link>
         <language>en</language>
         <!-- scripts/release.sh adds each new release directly below this line -->
+        <item>
+            <title>1.0</title>
+            <pubDate>Mon, 02 Nov 2026 07:04:49 +0000</pubDate>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[First release.]]></description>
+            <enclosure url="https://github.com/mbrkhrdt/MenuCompress/releases/download/v1.0/MenuCompress-1.0.zip" sparkle:edSignature="OC/x5528g0579Kg64VJxgUAjlaBzdlRbfI2XCWdYgLgpT0n/OY2r0X2RvOOzhZ3QvXW+WKy2dRsREpqxjLDCDg==" length="1429985" type="application/octet-stream"/>
+        </item>
     </channel>
 </rss>
