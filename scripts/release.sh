@@ -106,10 +106,11 @@ SIGNATURE=$("$SIGN_UPDATE" --account $SPARKLE_ACCOUNT "$OUT/$ZIP_NAME")
 
 echo
 echo "Ready: $OUT/$ZIP_NAME"
-if ! read -q "?Publish $TAG to GitHub and push the updated feed? [y/N] "; then
-    echo "\nStopped before publishing. Nothing was pushed."; exit 0
+# A plain read (not read -q) so the answer can also be piped in when there's no terminal
+read -r "answer?Publish $TAG to GitHub and push the updated feed? [y/N] " || true
+if [[ $answer != [yY]* ]]; then
+    echo "Stopped before publishing. Nothing was pushed."; exit 0
 fi
-echo
 
 echo "==> Publishing $TAG"
 git push origin main
