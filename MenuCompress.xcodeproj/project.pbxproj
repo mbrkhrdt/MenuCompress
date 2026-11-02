@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1E2CEB75F9A911CE7AB1397 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = DA684802AC990C8EF9C6E64C /* Sparkle */; };
 		D989A98F864F3B386C60EA06 /* CJpegli in Frameworks */ = {isa = PBXBuildFile; productRef = B10E2367E631A00425EAECD2 /* CJpegli */; };
 /* End PBXBuildFile section */
 
@@ -33,6 +34,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D989A98F864F3B386C60EA06 /* CJpegli in Frameworks */,
+				A1E2CEB75F9A911CE7AB1397 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -85,6 +87,7 @@
 			name = MenuCompress;
 			packageProductDependencies = (
 				B10E2367E631A00425EAECD2 /* CJpegli */,
+				DA684802AC990C8EF9C6E64C /* Sparkle */,
 			);
 			productName = MenuCompress;
 			productReference = FAF9BFA0BAFBA96CB901D770 /* MenuCompress.app */;
@@ -115,6 +118,7 @@
 			mainGroup = F03010EA41B77F44EAB5355C;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				A4F45E13DE30EB4EE633A2F8 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				ABA6A2F3BE752FA9D037EB92 /* XCLocalSwiftPackageReference "Packages/Jpegli" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -214,6 +218,7 @@
 				DEVELOPMENT_TEAM = WG9DXQASY4;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "MenuCompress-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = MenuCompress;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.graphics-design";
 				INFOPLIST_KEY_LSUIElement = YES;
@@ -304,6 +309,7 @@
 				DEVELOPMENT_TEAM = WG9DXQASY4;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "MenuCompress-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = MenuCompress;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.graphics-design";
 				INFOPLIST_KEY_LSUIElement = YES;
@@ -351,10 +357,26 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		A4F45E13DE30EB4EE633A2F8 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		B10E2367E631A00425EAECD2 /* CJpegli */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CJpegli;
+		};
+		DA684802AC990C8EF9C6E64C /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A4F45E13DE30EB4EE633A2F8 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

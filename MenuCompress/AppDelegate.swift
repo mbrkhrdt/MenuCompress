@@ -1,4 +1,5 @@
 import AppKit
+import Sparkle
 import SwiftUI
 
 /// Owns the status item and popover. MenuBarExtra can't accept file drops on its icon,
@@ -7,8 +8,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let session = CompressSession()
     private let popover = NSPopover()
     private var statusItem: NSStatusItem!
+    private var updaterController: SPUStandardUpdaterController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: self)
+
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "photo.badge.arrow.down", accessibilityDescription: "MenuCompress")
@@ -20,7 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.window?.delegate = self
         }
 
-        let hostingController = NSHostingController(rootView: ContentView(session: session))
+        let hostingController = NSHostingController(rootView: ContentView(session: session, checkForUpdates: { [weak self] in self?.checkForUpdates() }))
         hostingController.sizingOptions = .preferredContentSize
         popover.contentViewController = hostingController
         popover.behavior = .transient
@@ -31,6 +35,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         session.discardResult()
+    }
+
+    private func checkForUpdates() {
+        popover.performClose(nil)
+        NSApp.activate()
+        updaterController.checkForUpdates(nil)
     }
 
     @objc private func togglePopover() {
@@ -75,5 +85,17 @@ extension AppDelegate: NSWindowDelegate, NSDraggingDestination {
         guard let url = imageURL(from: sender) else { return false }
         session.load(url)
         return true
+    }
+}
+
+extension AppDelegate: SPUStandardUserDriverDelegate {
+    // Apps without a Dock icon have to opt in, or Sparkle warns that scheduled update alerts may go unseen
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+
+    func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
+        // A background check's alert would otherwise open behind whatever app is in front
+        if handleShowingUpdate {
+            NSApp.activate()
+        }
     }
 }

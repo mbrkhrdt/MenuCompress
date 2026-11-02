@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Bindable var session: CompressSession
+    let checkForUpdates: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -54,6 +55,9 @@ struct ContentView: View {
                 .pickerStyle(.segmented)
                 .fixedSize()
                 Spacer()
+                Button("Check for Updates…", action: checkForUpdates)
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.secondary)
                 Button("Quit") { NSApp.terminate(nil) }
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
