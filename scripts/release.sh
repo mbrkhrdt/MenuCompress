@@ -14,6 +14,8 @@
 #     Back it up once; without it, existing installs can never update again:
 #       build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys --account menucompress -x ~/menucompress-sparkle-key
 set -euo pipefail
+# set -e exits without a word, so say where it stopped
+trap 'echo "release.sh: stopped at line $LINENO (exit $?)" >&2' ZERR
 
 ROOT=${0:A:h:h}
 REPO=mbrkhrdt/MenuCompress
@@ -51,7 +53,8 @@ fi
 
 # Sparkle compares build numbers, so each release needs one higher than anything in the feed.
 # A build number that's already ahead (bumped by hand, or left by a run stopped before publishing) is kept.
-LATEST_BUILD=$(grep -o '<sparkle:version>[0-9]*' "$FEED" | grep -o '[0-9]*$' | sort -n | tail -1)
+# (grep finding nothing in an empty feed isn't an error here)
+LATEST_BUILD=$(grep -o '<sparkle:version>[0-9]*' "$FEED" | grep -o '[0-9]*$' | sort -n | tail -1 || true)
 LATEST_BUILD=${LATEST_BUILD:-0}
 if (( BUILD <= LATEST_BUILD )); then
     BUILD=$(( LATEST_BUILD + 1 ))
