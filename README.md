@@ -18,10 +18,10 @@ Open `MenuCompress.xcodeproj` in Xcode and run. Sparkle comes in through Swift P
 
 Updates ship through [Sparkle](https://sparkle-project.org). The feed is `docs/appcast.xml`, served by GitHub Pages, and each release zip is attached to a GitHub release.
 
-1. Bump the version and build number in Xcode and commit.
+1. Bump the version in Xcode and commit.
 2. Run `scripts/release.sh "What changed"`.
 
-The script archives, signs with Developer ID, notarizes, signs the update for Sparkle, asks before publishing, then creates the GitHub release and pushes the updated feed. The one-time setup it needs is at the top of the script.
+The script bumps and commits the build number when it needs to, archives, signs with Developer ID, notarizes, signs the update for Sparkle, asks before publishing, then creates the GitHub release and pushes the updated feed. The one-time setup it needs is at the top of the script.
 
 ## License
 

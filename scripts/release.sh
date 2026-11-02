@@ -1,8 +1,9 @@
 #!/bin/zsh
 # Builds, notarizes and publishes a MenuCompress release, then adds it to the Sparkle feed.
 #
-# Bump MARKETING_VERSION and CURRENT_PROJECT_VERSION in Xcode and commit, then:
+# Bump the version (MARKETING_VERSION) in Xcode and commit, then:
 #   scripts/release.sh "What changed in this release"
+# The build number is bumped and committed for you when it's needed.
 #
 # One-time setup:
 #   - Be signed in to your developer account in Xcode. The export uses -allowProvisioningUpdates,
@@ -40,12 +41,24 @@ MIN_OS=$(setting MACOSX_DEPLOYMENT_TARGET)
 TAG=v$VERSION
 ZIP_NAME=MenuCompress-$VERSION.zip
 
-# Sparkle compares build numbers, so every release needs a new one
-if grep -q "<sparkle:version>$BUILD</sparkle:version>" "$FEED"; then
-    echo "Build $BUILD is already in the feed. Bump CURRENT_PROJECT_VERSION in Xcode." >&2; exit 1
+if [[ -z $VERSION || $BUILD != <-> ]]; then
+    echo "Couldn't read the version and build number from the project." >&2; exit 1
 fi
+
 if gh release view "$TAG" --repo $REPO > /dev/null 2>&1; then
-    echo "$TAG already exists on GitHub. Bump MARKETING_VERSION in Xcode." >&2; exit 1
+    echo "$TAG already exists on GitHub. Bump the version in Xcode." >&2; exit 1
+fi
+
+# Sparkle compares build numbers, so each release needs one higher than anything in the feed.
+# A build number that's already ahead (bumped by hand, or left by a run stopped before publishing) is kept.
+LATEST_BUILD=$(grep -o '<sparkle:version>[0-9]*' "$FEED" | grep -o '[0-9]*$' | sort -n | tail -1)
+LATEST_BUILD=${LATEST_BUILD:-0}
+if (( BUILD <= LATEST_BUILD )); then
+    BUILD=$(( LATEST_BUILD + 1 ))
+    echo "==> Bumping build number to $BUILD"
+    sed -i '' -E "s/CURRENT_PROJECT_VERSION = [0-9]+;/CURRENT_PROJECT_VERSION = $BUILD;/" MenuCompress.xcodeproj/project.pbxproj
+    git add MenuCompress.xcodeproj/project.pbxproj
+    git commit --quiet -m "Bump build number to $BUILD"
 fi
 
 echo "==> Archiving MenuCompress $VERSION ($BUILD)"
